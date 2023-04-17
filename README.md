@@ -1,3 +1,3 @@
 # ipcr-filesystem-server
 
-#Filsystem interface for IPFS
+Filesystem interface for IPFS
