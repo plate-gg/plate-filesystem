@@ -1,24 +1,47 @@
 package main
 
 import (
-    "context"
-    "log"
-    "os"
-	"time"
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
+	"log"
+	"os"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-func connect() (*mongo.Client, *mongo.Database) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+//Database connection
+func Connect() *gorm.DB {
+	dsn := "user=" + os.Getenv("DB_USER") +
+		" password=" + os.Getenv("DB_PASSWORD") +
+		" host=" + os.Getenv("DB_URL") +
+		" dbname=" + os.Getenv("DB_DATABASE") +
+		" sslmode=disable"
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(os.Getenv("MONGODB_URI")))
-
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Error connecting to database: %v", err)
+		log.Printf("Failed to connect to database. \n")
+		os.Exit(100)
 	}
+
+	if err := createSchema(db); err != nil {
+		log.Printf("Failed to create schema: %v\n", err)
+	}
+
 	log.Printf("Database connection successful! \n")
-	return client, client.Database(os.Getenv("MONGODB_DATABASE_Name"))
+
+	return db
 }
 
+
+func createSchema(db *gorm.DB) error {
+	models := []interface{}{
+		&File{},
+	}
+
+	for _, model := range models {
+		err := db.AutoMigrate(model)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

@@ -1,23 +1,14 @@
 package main
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
-type NodeType string;
-
-const (
-	FileType NodeType = "file"
-	DirectoryType NodeType = "directory"
-)
-
-
-type FileSystemNode struct {
-	ID     primitive.ObjectID `bson:"_id,omitempty"`
-	Path string `bson:"path"`
-	FileName string   `bson:"name"`
-	Size   int64    `bson:"size"`
-	CID   string   `bson:"CID"`
+type File struct {
+	gorm.Model
+	ID       uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4()"`
+	Path     string    `gorm:"not null"`
+	CID      string    `gorm:"not null"`
+	FileName string    `gorm:"not null"`
 }
-
-
