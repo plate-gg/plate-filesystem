@@ -113,7 +113,7 @@ POST /api/v1/files
 ```json
 201 Created
 
-{
+}
     "fileName": "test.txt",
     "fileSize": 123,
     "path": "/",

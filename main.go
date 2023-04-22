@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
+
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 )
@@ -20,8 +22,9 @@ func main() {
 
 	// Routes
 	e.PUT("/api/v1/files", putFile)
-	e.POST("/api/v1/files/move", moveFile)
-	e.DELETE("/api/v1/files", deleteFile)
+	e.GET("/api/v1/cid/*", getCid)
+	e.POST("/api/v1/move", moveFile)
+	e.DELETE("/api/v1/delete", deleteFile)
 	e.POST("/api/v1/files", list)
 
 	// Starting Server
@@ -38,6 +41,7 @@ func main() {
 			"fileName": "test.txt",
 			"path": "/test.txt", // Default is 
 			"cid": "QmW2WQi7j6c7UgJTarActp7tDNikE4B2qXtFCfLPdsgaTQ" // CID of the file
+			"size": "123456" // Size of the file in bytes
 		}
 	Return
 		{
@@ -48,11 +52,18 @@ func main() {
 */
 func putFile(c echo.Context) error {
 	db := Connect()
+	// convert size to int64
+	size,e := strconv.ParseInt(c.FormValue("size"), 10, 64)
+	if e != nil {
+		log.Println(e)
+		return c.JSON(http.StatusBadRequest, e.Error())
+	}
 
 	newFile := File{
 		Path:     c.FormValue("path"),
 		FileName: c.FormValue("fileName"),
-		CID:      c.FormValue("CID"),
+		CID:      c.FormValue("cid"),
+		Size:    size,
 	}
 
 	err := db.Create(&newFile).Error
@@ -147,11 +158,32 @@ func list(c echo.Context) error {
 	//A regular expression to match subpaths with one more level
 	regex := "^" + regexp.QuoteMeta(path) + "/[^/]+$"
 
+	// Find all files with path matching the regex and return their paths in an array 
 	var files []File
-	if err := db.Where("path ~ ?", regex).Order("path asc").Find(&files).Error; err != nil {
+	if err := db.Where("path ~ ?", regex).Find(&files).Error; err != nil {
+		log.Println(err)
+		return c.JSON(http.StatusBadRequest, err.Error())
+	}
+	var paths []string
+	for _, file := range files {
+		paths = append(paths, file.Path)
+	}
+	
+	
+
+	return c.JSON(http.StatusOK, files)
+}
+
+func getCid(c echo.Context) error {
+	db := Connect()
+
+	path := c.Param("*")
+
+	var file File
+	if err := db.Where("path = ?", path).First(&file).Error; err != nil {
 		log.Println(err)
 		return c.JSON(http.StatusBadRequest, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, files)
+	return c.JSON(http.StatusOK, file.CID)
 }

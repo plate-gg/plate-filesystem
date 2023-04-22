@@ -11,4 +11,5 @@ type File struct {
 	Path     string    `gorm:"not null"`
 	CID      string    `gorm:"not null"`
 	FileName string    `gorm:"not null"`
+	Size    int64     `gorm:"not null"`
 }
