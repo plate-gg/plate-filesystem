@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
@@ -24,6 +25,7 @@ func main() {
 	e.POST("/api/v1/move", moveFile)
 	e.DELETE("/api/v1/delete", deleteFile)
 	e.POST("/api/v1/files", list)
+	e.POST("/api/v1/stats", getStat)
 
 	// Starting Server
 	port := os.Getenv("PORT")
@@ -184,4 +186,68 @@ func getCid(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, file.CID)
+}
+
+
+/*
+Return
+path
+last-edited
+Size
+ISDirectory bool
+
+
+*/
+func getStat(c echo.Context) error {
+	db:= Connect()
+	path := c.FormValue("path")
+	var count float64
+	type toReturn struct {
+		Path string 
+		Size int64 
+		ModTime time.Time
+		IsDir bool 
+	}
+	if countErr := db.Table("files").Select("COUNT(id)").Where("path = ? AND deleted_at IS NULL", path).Scan(&count).Error; countErr != nil {
+		log.Println(countErr)
+		return c.JSON(http.StatusBadRequest, countErr.Error())
+	}
+	if count == 0 {
+		return c.JSON(http.StatusNotFound, "File not found")
+	} else if count == 1 {
+		var file File
+		if err := db.Table("files").Select("*").Where("path =?", path).Scan(&file).Error; err != nil {
+			log.Println(err)
+			return c.JSON(http.StatusBadRequest, err.Error())
+		}
+		res := &toReturn{
+			Path: file.Path,
+			Size: file.Size,
+			ModTime: file.UpdatedAt,
+			IsDir: false,
+		}
+		return c.JSON(http.StatusOK, res)
+	} else {
+		var sizeSum int64
+		log.Println(&sizeSum)
+		if sumErr := db.Table("files").Select("SUM(size)").Where("path LIKE ? || '%' AND deleted_at IS NULL", path).Scan(&sizeSum).Error; sumErr != nil {
+			log.Println(sumErr)
+			return c.JSON(http.StatusBadRequest, sumErr.Error())
+		}
+		log.Println(sizeSum)
+		var LastUpdated time.Time
+		log.Println(LastUpdated)
+		if luErr := db.Table("files").Select("updated_at").Where("path LIKE ? || '%' AND deleted_at IS NULL", path).Order("updated_at desc").Limit(1).Find(&LastUpdated).Error; luErr != nil {
+			log.Println(luErr)
+			return c.JSON(http.StatusBadRequest, luErr.Error())
+		}
+		log.Println(LastUpdated)
+		res := &toReturn{
+			Path: path,
+			Size: sizeSum,
+			ModTime: LastUpdated,
+			IsDir: true,
+		}
+		return c.JSON(http.StatusOK, res)
+	}
 }
